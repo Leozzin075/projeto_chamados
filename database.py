@@ -5,8 +5,16 @@ import pandas as pd
 from datetime import datetime
 from tkinter import messagebox
 import config
+import sys
+import os
 
-# Variáveis globais de conexão e dados
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 worksheet_chamados, worksheet_usuarios, worksheet_comentarios, worksheet_logs = None, None, None, None
 df_usuarios = None
 current_user_profile, current_user_name, current_user_hotel = None, None, None
@@ -14,7 +22,8 @@ current_user_profile, current_user_name, current_user_hotel = None, None, None
 def conectar_google_sheets():
     global worksheet_chamados, worksheet_usuarios, worksheet_comentarios, worksheet_logs, df_usuarios
     try:
-        gc = gspread.service_account(filename=config.ARQUIVO_CREDENCIAL)
+        caminho_credencial = resource_path(config.ARQUIVO_CREDENCIAL)
+        gc = gspread.service_account(filename=caminho_credencial)
         sh = gc.open(config.NOME_PLANILHA)
         worksheet_chamados = sh.worksheet("Chamados")
         worksheet_usuarios = sh.worksheet("Usuarios")
@@ -23,7 +32,7 @@ def conectar_google_sheets():
         df_usuarios = pd.DataFrame(worksheet_usuarios.get_all_records())
         return True
     except gspread.exceptions.WorksheetNotFound as e:
-        messagebox.showerror("Erro de Planilha", f"Aba não encontrada: {e}\nGaranta que todas as abas ('Chamados', 'Usuarios', 'Comentarios', 'Logs') existem.")
+        messagebox.showerror("Erro de Planilha", f"Aba não encontrada: {e}\nGaranta que as abas 'Chamados', 'Usuarios', 'Comentarios' e 'Logs' existem.")
         return False
     except Exception as e:
         messagebox.showerror("Erro Crítico de Conexão", f"Não foi possível conectar à base de dados.\nDetalhes: {e}")
@@ -49,6 +58,9 @@ def verificar_login(username, password):
     if df_usuarios is None: return False
     input_user, input_pass = username.strip(), password.strip()
     usuarios_db = df_usuarios.copy()
+    if 'Username' not in usuarios_db.columns or 'Password' not in usuarios_db.columns:
+        messagebox.showerror("Erro de Configuração", "A planilha 'Usuarios' não contém as colunas 'Username' e 'Password'.")
+        return False
     usuarios_db['Username'] = usuarios_db['Username'].astype(str).str.strip()
     usuarios_db['Password'] = usuarios_db['Password'].astype(str).str.strip()
     usuario_encontrado = usuarios_db[(usuarios_db['Username'].str.lower() == input_user.lower()) & (usuarios_db['Password'] == input_pass)]
@@ -99,45 +111,30 @@ def atualizar_status_por_codigo(codigo_chamado, novo_status, status_antigo):
         print(f"Erro ao atualizar status: {e}"); return False
 
 def buscar_todos_usuarios():
-    """Busca e retorna todos os usuários como um DataFrame."""
     df_usuarios_recarregado = pd.DataFrame(worksheet_usuarios.get_all_records())
     return df_usuarios_recarregado
 
-#
-# No arquivo database.py, substitua esta função:
-#
-
 def salvar_usuario(username, password, hotel, profile, is_edit_mode):
-    """Salva um novo usuário ou edita um existente, com verificação case-insensitive."""
     try:
         if is_edit_mode:
-            # Em modo de edição, apenas atualizamos a linha.
             cell = worksheet_usuarios.find(username, in_column=1)
             worksheet_usuarios.update(f'A{cell.row}:D{cell.row}', [[username, password, hotel, profile]])
             registrar_log("USER_EDIT", f"Editou o usuário '{username}'.")
-        else:  # Modo de criação
-            # --- LÓGICA DE VERIFICAÇÃO MELHORADA ---
-            # 1. Pega todos os usuários da planilha.
+        else:
             todos_usuarios = worksheet_usuarios.get_all_records()
-            # 2. Cria uma lista com todos os usernames existentes, convertidos para minúsculas.
             usernames_existentes = [user['Username'].lower().strip() for user in todos_usuarios]
-            
-            # 3. Verifica se o novo username (também em minúsculas) já está na lista.
             if username.lower().strip() in usernames_existentes:
-                messagebox.showwarning("Atenção", f"O nome de usuário '{username}' já existe (verificação não diferencia maiúsculas/minúsculas).")
+                messagebox.showwarning("Atenção", f"O nome de usuário '{username}' já existe.")
                 return False
             else:
-                # Se não existe, adiciona o novo usuário.
                 worksheet_usuarios.append_row([username, password, hotel, profile])
                 registrar_log("USER_CREATE", f"Criou o novo usuário '{username}'.")
-        
         return True
     except Exception as e:
         messagebox.showerror("Erro de Banco de Dados", f"Ocorreu um erro ao salvar o usuário.\n\nDetalhe Técnico: {e}")
         return False
 
 def deletar_usuario(username):
-    """Deleta um usuário pelo username."""
     try:
         cell = worksheet_usuarios.find(username, in_column=1)
         worksheet_usuarios.delete_rows(cell.row)

@@ -6,11 +6,9 @@ from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 from datetime import datetime
 import pandas as pd
-
 import config
 import database
 
-# --- LÓGICA DE NAVEGAÇÃO E LOGIN ---
 def fazer_login(janela_login, username_entry, password_entry):
     if database.verificar_login(username_entry.get(), password_entry.get()):
         database.registrar_log("LOGIN_SUCCESS", f"Usuário '{database.current_user_name}' logou com sucesso.")
@@ -29,7 +27,6 @@ def fazer_logout(janela_atual, janela_login):
         janela_atual.destroy()
         janela_login.deiconify()
 
-# --- DEFINIÇÕES DAS JANELAS ---
 def abrir_janela_login():
     login_root = ttk.Window(themename="cosmo") 
     login_root.title("Login - Sistema de Chamados TI")
@@ -46,18 +43,20 @@ def abrir_janela_login():
     
     ttk.Label(frame, text="Password:", font=("-size 10")).pack(pady=(10,0), fill='x')
     password_entry = ttk.Entry(frame, show="*"); password_entry.pack(pady=5, fill='x')
-    password_entry.bind("<Return>", lambda e: fazer_login(login_root, username_entry, password_entry))
+    
+    def perform_login(event=None):
+        fazer_login(login_root, username_entry, password_entry)
+
+    password_entry.bind("<Return>", perform_login)
     
     button_frame = ttk.Frame(frame)
     button_frame.pack(pady=20)
     
-    tk.Button(
-        button_frame, 
-        text="Login", 
-        command=lambda: fazer_login(login_root, username_entry, password_entry),
-        font=("Segoe UI", 10, "bold"),
-        bg="#0d6efd", fg="white", relief="flat", pady=5, padx=20
-    ).pack()
+    login_button = tk.Button(
+        button_frame, text="Login", command=perform_login, font=("Segoe UI", 10, "bold"),
+        bg="#0d6efd", fg="white", relief="raised", borderwidth=2
+    )
+    login_button.pack(ipadx=40, ipady=8) 
     
     login_root.mainloop()
 
@@ -66,8 +65,7 @@ def abrir_janela_detalhes_comum(parent_window, chamado_data, is_suporte, callbac
     codigo_chamado, _, hotel, solicitante, descricao, status_atual = chamado_data
     main_frame = ttk.Frame(detalhes_root, padding="15"); main_frame.pack(fill="both", expand=True)
     info_frame = ttk.LabelFrame(main_frame, text="Informações Gerais", padding="10", bootstyle="info"); info_frame.pack(fill="x", pady=5)
-    ttk.Label(info_frame, text="Código do Chamado:", font=("-weight bold")).grid(row=0, column=0, sticky="w", pady=2)
-    ttk.Label(info_frame, text=codigo_chamado).grid(row=0, column=1, sticky="w", pady=2, padx=5)
+    ttk.Label(info_frame, text="Código do Chamado:", font=("-weight bold")).grid(row=0, column=0, sticky="w", pady=2); ttk.Label(info_frame, text=codigo_chamado).grid(row=0, column=1, sticky="w", pady=2, padx=5)
     ttk.Label(info_frame, text="Hotel:", font=("-weight bold")).grid(row=1, column=0, sticky="w", pady=2); ttk.Label(info_frame, text=hotel).grid(row=1, column=1, sticky="w", pady=2, padx=5)
     ttk.Label(info_frame, text="Solicitante:", font=("-weight bold")).grid(row=2, column=0, sticky="w", pady=2); ttk.Label(info_frame, text=solicitante).grid(row=2, column=1, sticky="w", pady=2, padx=5)
     if not is_suporte:
@@ -241,7 +239,3 @@ def abrir_janela_usuarios(parent_window):
     ttk.Button(botoes_frame, text="Limpar Campos", command=_limpar, bootstyle="secondary").pack(side="left", expand=True, fill="x", padx=5)
     ttk.Button(botoes_frame, text="Deletar Usuário", command=_deletar, bootstyle="danger").pack(side="left", expand=True, fill="x", padx=5)
     _carregar()
-
-if __name__ == "__main__":
-    if conectar_google_sheets():
-        abrir_janela_login()

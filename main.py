@@ -9,5 +9,4 @@ if __name__ == "__main__":
         ui.abrir_janela_login()
     else:
         # A mensagem de erro já é exibida pela função de conexão.
-        # Apenas garantimos que o programa não continue se a conexão falhar.
         print("Falha na conexão com a base de dados. Encerrando o programa.")
